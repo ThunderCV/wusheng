@@ -71,6 +71,8 @@ function view(r, vid) {
     hands: g.hands, tiles: g.tiles, retired: g.retired,
     gid: g.id, order: speakOrder(g), used: [...g.used], passed: [...g.passed], fails: g.fails,
     hasAccomplice: g.hasAccomplice,
+    // 选牌阶段只公布人数，不公布是谁选完了，免得看出谁是凶手
+    picked: Object.keys(g.picks).length, pickers: g.seat.length - 1,
   });
   if (g.seat.includes(vid)) {
     const role = g.roles[vid];
@@ -80,6 +82,7 @@ function view(r, vid) {
     if (role === "forensic" || role === "killer") my.accomplice = g.accomplice || null;
     if (role === "forensic" && r.status === "hint") my.offer = g.offer;
     const mine = g.accusations.find(a => a.by === vid);
+    if (g.picks[vid]) my.pick = g.picks[vid];
     if (mine) my.accusation = { target: mine.target, w: mine.w, c: mine.c, round: mine.round };
     v.my = my;
   }
@@ -129,7 +132,7 @@ function startGame(r) {
 
   r.game = {
     seat, roles, forensic, killer, accomplice, hasAccomplice, hands,
-    answer: null, round: 1, start: crypto.randomInt(n - 1),
+    answer: null, picks: {}, round: 1, start: crypto.randomInt(n - 1),
     deck: shuffle(RANDOM_TILES), offer: [], tiles: [], retired: [],
     id: rid(6), used: new Set(), passed: new Set(), accusations: [], fails: [],
   };
@@ -147,13 +150,20 @@ function finish(r, winner, reason) {
   r.status = "end";
 }
 
-function setCrime(r, w, c) {
-  const g = r.game, h = g.hands[g.killer];
+// 法医以外的所有人都要选牌，凶手选的才是真相。
+// 这样开局时每个人都在低头操作，看不出谁是凶手。
+function setPick(r, by, w, c) {
+  const g = r.game, h = g.hands[by];
+  if (!h) throw new Err("法医不用选牌。");
+  if (g.picks[by]) throw new Err("你已经选过了。");
   if (!h.w.includes(w)) throw new Err("请从你面前的凶器里选一张。");
   if (!h.c.includes(c)) throw new Err("请从你面前的线索里选一张。");
-  g.answer = { w, c };
-  dealOffer(g);
-  r.status = "hint";
+  g.picks[by] = { w, c };
+  if (Object.keys(g.hands).every(id => g.picks[id])) {
+    g.answer = { ...g.picks[g.killer] };
+    dealOffer(g);
+    r.status = "hint";
+  }
 }
 
 function validMark(key, idx) {
@@ -246,9 +256,10 @@ function botsAct(r) {
   const bot = id => r.players.get(id)?.bot;
   switch (r.status) {
     case "crime": {
-      if (!bot(g.killer)) throw new Err("凶手不是测试玩家，等凶手选牌。");
-      const h = g.hands[g.killer];
-      setCrime(r, pick1(h.w), pick1(h.c));
+      for (const id of Object.keys(g.hands)) {
+        if (!bot(id) || g.picks[id]) continue;
+        setPick(r, id, pick1(g.hands[id].w), pick1(g.hands[id].c));
+      }
       break;
     }
     case "hint": {
@@ -381,8 +392,7 @@ function act(body) {
       break;
     case "crime":
       phase("crime"); inSeat();
-      if (actor !== g.killer) throw new Err("只有凶手能选凶器和线索。");
-      setCrime(r, clean(body.w, 20), clean(body.c, 20));
+      setPick(r, actor, clean(body.w, 20), clean(body.c, 20));
       break;
     case "hint":
       phase("hint"); inSeat();

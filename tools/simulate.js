@@ -19,6 +19,8 @@ function checkIsolation(r) {
         assert(!v.my.answer && !v.my.killer && !v.my.accomplice && !v.my.offer, "侦探拿到了不该看的信息");
       }
       if (role === "killer") assert(!v.my.killer && !v.my.offer, "凶手拿到了法医的候选板");
+      assert(!("picks" in v) && typeof v.picked === "number", "选牌阶段泄露了谁选完了");
+      if (v.my.pick) assert.deepEqual(v.my.pick, g.picks[id], "拿到了别人的选牌");
       if (role !== "forensic") assert(!v.my.offer, "非法医看到了候选板");
       assert(!s.includes('"ok":'), "未结束时泄露了指认结果细节");
     }
@@ -29,9 +31,10 @@ function humanStep(r, host, code) {
   const g = r.game;
   const P = x => act({ pid: host, room: code, ...x });
   const role = g.roles[host];
-  if (r.status === "crime" && role === "killer") {
+  if (r.status === "crime" && role !== "forensic" && !g.picks[host]) {
     const h = g.hands[host];
     P({ action: "crime", w: h.w[0], c: h.c[1] });
+    assert.throws(() => P({ action: "crime", w: h.w[1], c: h.c[1] }), /已经选过/);
     return true;
   }
   if (r.status === "hint" && role === "forensic") {
@@ -92,7 +95,8 @@ for (let n = CFG.minPlayers; n <= CFG.maxPlayers; n++) for (let k = 0; k < 300; 
   assert.equal(new Set(all).size, all.length, "发牌重复");
 
   // 非法操作
-  if (g.roles[host] !== "killer") assert.throws(() => act({ action: "crime", pid: host, room: code, w: "x", c: "y" }), /只有凶手/);
+  if (g.roles[host] === "forensic") assert.throws(() => act({ action: "crime", pid: host, room: code, w: "x", c: "y" }), /法医不用选牌/);
+  else assert.throws(() => act({ action: "crime", pid: host, room: code, w: "不存在", c: g.hands[host].c[0] }), /凶器/);
 
   let steps = 0;
   while (r.status !== "end") {
@@ -100,6 +104,8 @@ for (let n = CFG.minPlayers; n <= CFG.maxPlayers; n++) for (let k = 0; k < 300; 
     checkIsolation(r);
     if (!humanStep(r, host, code)) act({ action: "botsAct", pid: host, room: code });
   }
+  assert.deepEqual(g.answer, g.picks[g.killer], "真相不是凶手选的那两张");
+  assert.equal(Object.keys(g.picks).length, n - 1, "有人没选牌就开始了");
   // 结束后的一致性
   if (g.winner === "evil" && g.round === CFG.rounds && g.reason.includes("最后指认")) {
     assert(g.seat.every(id => id === g.forensic || g.used.has(id) || g.passed.has(id)), "最后指认还有人没决定就结算了");

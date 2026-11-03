@@ -394,12 +394,13 @@ function RULES(open){
   return `<details class="panel" ${open?"open":""}><summary>怎么玩</summary>
   <ul class="rolelist">
     ${rl("forensic","（1 人）知道全部真相，<b>全程不许说话</b>，只能在勘查板上做标记。")}
-    ${rl("killer","（1 人）开局从自己面前的牌里选 1 件凶器、1 条线索作为真相。")}
+    ${rl("killer","（1 人）开局选的 1 件凶器、1 条线索就是真相。")}
     ${rl("accomplice",`（可选，${C.accompliceMin} 人以上）知道凶手和真相，帮凶手打掩护。`)}
     ${rl("detective","其他人。找出凶手、凶器和线索。")}
   </ul>
   <ol class="rules">
   <li>除法医外，每人面前有 ${C.handSize} 张<b style="color:var(--wpn)">凶器</b>和 ${C.handSize} 张<b style="color:var(--clu)">线索</b>，所有人都看得到。</li>
+  <li>开局<b>所有人</b>都从自己面前选 1 件凶器和 1 条线索，只有凶手选的算数。大家都在选，就看不出谁是凶手。</li>
   <li>第 1 轮，法医标记<b>死因</b>，再从 ${C.firstOffer} 块随机勘查板里挑 ${C.firstPick} 块，每块标一个选项。</li>
   <li>大家按手机上的顺序发言推理，凶手也要假装一起推理。讨论完由法医进入下一轮。</li>
   <li>之后每轮，法医拿到 ${C.laterOffer} 块新板：标记其中 1 块，再撤下 1 块旧板。一共 ${C.rounds} 轮。</li>
@@ -555,21 +556,22 @@ function vLobby(){
 }
 
 function vCrime(){
-  const m=V.my;const d=L.d;
-  if(m.role==="killer"){
+  const m=V.my;const d=L.d;const f=m.role==="forensic";
+  const prog=`已选 ${V.picked}/${V.pickers} 人`;
+  if(!f&&!m.pick){
+    // 所有人看到的文字完全一样，凶手和侦探从屏幕和动作上都分不出来
     const h=V.hands[me()];
     return `${head()}${steps()}${strip()}${roleCard()}
-    <section class="panel pop"><h3>你是${esc(rn("killer"))}，挑好作案的两张牌</h3>
-      <p class="small muted">挡好屏幕。选完后${esc(rn("forensic"))}会照着它们做标记。挑那些不太好描述、又跟别人的牌有点像的。</p>
+    <section class="panel pop"><h3>从你面前选 1 件凶器、1 条线索</h3>
+      <p class="small muted">每个人都要选。如果你是${esc(rn("killer"))}，选的就是真相；如果不是，随便选也行，但请认真选，别让人从你的动作看出身份。</p>
       <span class="label">凶器 · 选 1 件</span><div class="cards">${h.w.map(x=>`<button class="cd w pick ${d.w===x?"sel":""}" data-cw="${esc(x)}" aria-pressed="${d.w===x}">${esc(x)}</button>`).join("")}</div>
       <span class="label">线索 · 选 1 条</span><div class="cards">${h.c.map(x=>`<button class="cd c pick ${d.c===x?"sel":""}" data-cc="${esc(x)}" aria-pressed="${d.c===x}">${esc(x)}</button>`).join("")}</div></section>
-    ${errLine()}${dock(`<button class="primary" data-a="crime" ${!d.w||!d.c||L.busy?"disabled":""}>${ic("check")}就是这两张</button>`,!d.w||!d.c?`还要选${!d.w?"凶器":""}${!d.w&&!d.c?"和":""}${!d.c?"线索":""}`:"")}
+    ${errLine()}${dock(`<button class="primary" data-a="crime" ${!d.w||!d.c||L.busy?"disabled":""}>${ic("check")}就是这两张</button>`,!d.w||!d.c?`还要选${!d.w?"凶器":""}${!d.w&&!d.c?"和":""}${!d.c?"线索":""} · ${prog}`:prog)}
     ${hands()}`;
   }
-  const f=m.role==="forensic";
   return `${head()}${steps()}${strip()}${roleCard()}
     ${f?silence():""}
-    ${waiting(`${esc(rn("killer"))}正在悄悄选牌。大家先按住上面的卡片看看自己的身份。`)}
+    ${waiting(f?`大家正在选牌（${prog}）。选完后你会拿到真相和勘查板。`:`你选好了。等其他人选完（${prog}）`)}
     ${f?"":`<p class="notice">${ic("info")}<span>${esc(rn("forensic"))}是 <b>${esc(nm(V.forensic))}</b>，从现在起 TA 不能说话。趁这个时间看看大家面前都有什么牌。</span></p>`}
     ${errLine()}${hands()}`;
 }
