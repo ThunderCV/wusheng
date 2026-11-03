@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>无声证词</title>
+<meta name="description" content="线下多人推理游戏：法医不能说话，只能在勘查板上做标记，侦探们找出凶手、凶器和线索。">
+<meta name="theme-color" content="#F0EEE9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#11141B" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232A3350'/%3E%3Crect x='8' y='40' width='48' height='8' fill='%23F2C230'/%3E%3Ctext x='32' y='42' font-size='32' text-anchor='middle' font-family='serif' font-weight='900' fill='%23fff'%3E证%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@700;900&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* 布局：一列手机宽度的「案卷」卡片，铺在点阵纸上；主操作固定在底部给拇指按。
+   红 = 凶器，蓝 = 线索，黄 = 法医的标记（像证物标签）。 */
+:root{
+  --paper:#F0EEE9; --dot:#D9D4C9; --surface:#FFFFFF; --sunken:#F6F4F0;
+  --ink:#1E2230; --muted:#5F6576; --line:#E0DCD3;
+  --brand:#2A3350; --brand-ink:#FFFFFF; --brand-soft:#E6E9F2;
+  --hl:#F2C230; --hl-ink:#2A2000; --hl-soft:#FCF1CC;
+  --wpn:#B2392C; --wpn-soft:#FAE3DF; --clu:#2C6A8F; --clu-soft:#DDEDF5;
+  --good:#1F7A5A; --good-soft:#DCF1E8; --bad:#B2392C; --bad-soft:#FAE3DF;
+  --a1:#3F6BC4; --a2:#C2563F; --a3:#2F8F6F; --a4:#8A5BC2; --a5:#C28A1F; --a6:#2E8AA8; --a7:#B8477E; --a8:#5F7A2E;
+  --shadow:0 1px 2px rgba(30,34,48,.06),0 8px 24px rgba(30,34,48,.08);
+  --r-lg:18px; --r:12px;
+  --serif:"Noto Serif SC","Songti SC","STSong",serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#11141B; --dot:#232837; --surface:#1A1E28; --sunken:#151922;
+  --ink:#E7E9EF; --muted:#9AA1B3; --line:#2B3142;
+  --brand:#9DB0E8; --brand-ink:#10141F; --brand-soft:#232D4A;
+  --hl:#E5B52E; --hl-ink:#221A00; --hl-soft:#3A3114;
+  --wpn:#F08C80; --wpn-soft:#3B1F1C; --clu:#86BEE0; --clu-soft:#172C3A;
+  --good:#6CCBA5; --good-soft:#163328; --bad:#F08C80; --bad-soft:#3B1F1C;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#11141B; --dot:#232837; --surface:#1A1E28; --sunken:#151922;
+  --ink:#E7E9EF; --muted:#9AA1B3; --line:#2B3142;
+  --brand:#9DB0E8; --brand-ink:#10141F; --brand-soft:#232D4A;
+  --hl:#E5B52E; --hl-ink:#221A00; --hl-soft:#3A3114;
+  --wpn:#F08C80; --wpn-soft:#3B1F1C; --clu:#86BEE0; --clu-soft:#172C3A;
+  --good:#6CCBA5; --good-soft:#163328; --bad:#F08C80; --bad-soft:#3B1F1C;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{min-height:100%}
+body{margin:0;color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;
+  background-color:var(--paper);background-image:radial-gradient(var(--dot) 1.2px,transparent 1.3px);background-size:20px 20px;background-attachment:fixed;
+  padding-top:calc(16px + env(safe-area-inset-top,0px));padding-bottom:calc(24px + env(safe-area-inset-bottom,0px));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-tap-highlight-color:transparent}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1,h2,h3{font-family:var(--serif);text-wrap:balance;margin:0;line-height:1.3}
+h2{font-size:24px}h3{font-size:19px}
+p{margin:0}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.ico{width:20px;height:20px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 标题栏 */
+.masthead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 2px 4px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:36px;height:36px;border-radius:10px;background:var(--brand);color:var(--brand-ink);display:grid;place-items:center;font-family:var(--serif);font-weight:900;font-size:20px;flex:none;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.logo::after{content:"";position:absolute;left:0;right:0;bottom:6px;height:4px;background:var(--hl);opacity:.9}
+.masthead h1{font-size:21px;font-weight:900;letter-spacing:.06em;white-space:nowrap}
+.masthead h1 mark{background:linear-gradient(transparent 58%,var(--hl) 58%);color:inherit;padding:0 1px}
+.tag{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:3px 10px;white-space:nowrap;font-variant-numeric:tabular-nums}
+
+/* 卡片 */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;display:flex;flex-direction:column;gap:12px}
+.label{font-size:13px;letter-spacing:.06em;color:var(--muted);font-weight:500;display:flex;align-items:center;gap:6px}
+.label .ico{width:16px;height:16px}
+.notice{display:flex;gap:10px;align-items:flex-start;background:var(--hl-soft);color:var(--ink);border:1px solid var(--hl);border-radius:var(--r);padding:10px 14px;font-size:15px}
+.notice .ico{margin-top:2px}
+.err{display:flex;gap:8px;align-items:center;background:var(--bad-soft);color:var(--bad);border-radius:var(--r);padding:10px 14px;font-size:14px;font-weight:500}
+.silence{display:flex;gap:10px;align-items:center;justify-content:center;border:1.5px dashed var(--wpn);color:var(--wpn);border-radius:var(--r);padding:10px 14px;font-weight:700;font-family:var(--serif)}
+
+/* 按钮和输入 */
+button{font:inherit;cursor:pointer;border-radius:var(--r);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px 16px;min-height:48px;
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:500;transition:background .15s,border-color .15s,transform .08s,opacity .15s}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:active:not(:disabled){transform:scale(.98)}
+button:disabled{opacity:.45;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--hl);outline-offset:2px}
+.primary{background:var(--brand);color:var(--brand-ink);border-color:var(--brand);font-weight:700;font-size:17px;width:100%;min-height:54px;box-shadow:var(--shadow)}
+.primary:hover:not(:disabled){filter:brightness(1.08);border-color:var(--brand)}
+.secondary{background:var(--brand-soft);border-color:transparent;color:var(--ink);width:100%}
+.ghost{background:transparent;border-color:transparent;color:var(--muted);min-height:40px}
+.ghost:hover:not(:disabled){color:var(--ink);border-color:transparent;background:var(--sunken)}
+.danger{background:var(--bad);color:#fff;border-color:var(--bad);font-weight:700}
+.row{display:flex;gap:10px;align-items:center}
+.row>*{min-width:0}
+.grow{flex:1}
+input{font:inherit;color:var(--ink);background:var(--sunken);border:1.5px solid var(--line);border-radius:var(--r);padding:11px 14px;min-height:48px;width:100%;transition:border-color .15s,background .15s}
+input:focus,select:focus{border-color:var(--brand);background:var(--surface);outline:none}
+input::placeholder{color:var(--muted);opacity:.8}
+select{font:inherit;color:var(--ink);background:var(--sunken);border:1.5px solid var(--line);border-radius:var(--r);padding:10px 12px;min-height:48px;width:100%}
+#joinCode{font-family:var(--mono);font-weight:600;letter-spacing:.35em;text-transform:uppercase;font-size:20px;text-align:center}
+.switch{display:flex;gap:12px;align-items:center;justify-content:space-between;cursor:pointer}
+.switch input{appearance:none;-webkit-appearance:none;width:48px;height:28px;min-height:0;padding:0;border-radius:999px;background:var(--line);border:none;position:relative;flex:none;cursor:pointer;transition:background .2s}
+.switch input::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .2s}
+.switch input:checked{background:var(--brand)}
+.switch input:checked::after{transform:translateX(20px)}
+.switch input:disabled{opacity:.45;cursor:not-allowed}
+details.panel>summary{cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;justify-content:space-between}
+details.panel>summary::-webkit-details-marker{display:none}
+details.panel>summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin-right:4px;transition:transform .2s}
+details[open].panel>summary::after{transform:rotate(-135deg)}
+.rules{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.rolelist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.rolelist li{display:flex;gap:10px;align-items:flex-start}
+.rolelist .rb{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:none}
+.rolelist .rb .ico{width:18px;height:18px}
+
+/* 底部操作区 */
+.dock{position:sticky;bottom:0;z-index:5;display:flex;flex-direction:column;gap:8px;margin:0 -16px;padding:14px 16px calc(10px + env(safe-area-inset-bottom,0px));
+  background:linear-gradient(to bottom,transparent,var(--paper) 30%)}
+.dock .hint{text-align:center;font-size:14px;color:var(--muted)}
+.dock .row button{flex:1}
+
+/* 进度条 */
+.steps{display:grid;gap:6px}
+.steps div{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--muted);text-align:center;white-space:nowrap}
+.steps i{height:5px;border-radius:3px;background:var(--line)}
+.steps .done i{background:var(--brand);opacity:.45}
+.steps .now{color:var(--ink);font-weight:700}
+.steps .now i{background:var(--brand)}
+
+/* 玩家 */
+.av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:14px;font-weight:700;flex:none}
+.strip{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none;margin:0 -16px;padding-inline:16px}
+.strip::-webkit-scrollbar{display:none}
+.chip{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 10px 4px 4px;font-size:14px;white-space:nowrap;flex:none}
+.chip .av{width:26px;height:26px;font-size:12px}
+.chip.me{background:var(--brand-soft);border-color:transparent}
+.chip.fx{border-color:var(--wpn);box-shadow:inset 0 0 0 1px var(--wpn)}
+.chip .rt{font-size:11px;font-weight:700;color:var(--wpn)}
+.chip .ico{width:15px;height:15px}
+.chip .bdg{color:var(--hl-ink);background:var(--hl);border-radius:50%;width:20px;height:20px;display:grid;place-items:center}
+.chip .bdg .ico{width:13px;height:13px;stroke-width:2.2}
+.chip .gone{color:var(--muted);opacity:.6}
+.plist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.plist li{display:flex;align-items:center;gap:12px;padding:8px 4px;border-radius:10px}
+.plist li .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pill{font-size:12px;font-weight:600;border-radius:999px;padding:2px 10px;white-space:nowrap}
+.pill.host{background:var(--brand-soft);color:var(--brand)}
+.pill.bot{background:var(--sunken);color:var(--muted);border:1px solid var(--line)}
+.pill.ok{background:var(--good-soft);color:var(--good)}
+.pill.wait{background:var(--sunken);color:var(--muted)}
+.pill.evil{background:var(--bad-soft);color:var(--bad)}
+.pill.fx{background:var(--wpn-soft);color:var(--wpn)}
+.pill.good{background:var(--good-soft);color:var(--good)}
+.who{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
+.who button{justify-content:flex-start;min-height:52px;padding:8px 12px;border-width:1.5px}
+.who button.sel{border-color:var(--brand);background:var(--brand-soft);box-shadow:inset 0 0 0 1px var(--brand);font-weight:700}
+.who .rnd{justify-content:center}
+.order{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.order li{display:flex;align-items:center;gap:12px;padding:8px 10px;border-radius:12px;background:var(--sunken)}
+.order li .n{font-family:var(--mono);font-weight:600;color:var(--muted);width:20px;text-align:center}
+.order li.me{background:var(--brand-soft);font-weight:700}
+.order li .nm{flex:1}
+
+/* 牌 */
+.cd{display:inline-flex;align-items:center;gap:4px;border-radius:8px;padding:3px 10px;font-size:14px;font-weight:500;line-height:1.5;border:1.5px solid transparent;min-height:0;transition:opacity .15s}
+.cd.w{background:var(--wpn-soft);color:var(--wpn)}
+.cd.c{background:var(--clu-soft);color:var(--clu)}
+button.cd{min-height:38px;padding:6px 12px;font-size:15px}
+button.cd.pick{min-height:46px;padding:8px 14px}
+button.cd.sel.w{border-color:var(--wpn);box-shadow:inset 0 0 0 1px var(--wpn);font-weight:700}
+button.cd.sel.c{border-color:var(--clu);box-shadow:inset 0 0 0 1px var(--clu);font-weight:700}
+button.cd.sel::before{content:"✓"}
+.cd.x{opacity:.35;text-decoration:line-through}
+.cd.hit{background:var(--hl);color:var(--hl-ink);border-color:var(--hl);font-weight:700}
+.cards{display:flex;flex-wrap:wrap;gap:6px}
+.legend{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.dossiers{display:flex;flex-direction:column;gap:10px}
+.dossier{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:14px;background:var(--sunken);border:1px solid transparent}
+.dossier.me{border-color:var(--line);background:var(--surface);box-shadow:inset 0 0 0 1px var(--brand-soft)}
+.dossier.killer{border-color:var(--hl);background:var(--hl-soft)}
+.dossier .hd{display:flex;align-items:center;gap:10px}
+.dossier .hd .nm{font-weight:700;flex:1;min-width:0}
+
+/* 勘查板 */
+.tiles{display:flex;flex-direction:column;gap:10px}
+.tile{border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:10px;background:var(--sunken)}
+.tile .th{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.tile .th b{font-family:var(--serif);font-size:17px}
+.tile .new{font-size:12px;font-weight:700;color:var(--hl-ink);background:var(--hl);border-radius:999px;padding:1px 9px}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.opt{font-size:14px;border:1px solid var(--line);border-radius:9px;padding:7px 4px;text-align:center;color:var(--muted);background:var(--surface);line-height:1.35;min-height:0}
+.opt.on{background:var(--hl);color:var(--hl-ink);border-color:var(--hl);font-weight:700;box-shadow:0 2px 0 rgba(0,0,0,.12)}
+button.opt{min-height:46px;color:var(--ink);font-weight:500;padding:6px 4px}
+button.opt.on{color:var(--hl-ink);font-weight:700}
+.tile.pick{border-color:var(--brand);box-shadow:inset 0 0 0 1px var(--brand);background:var(--surface)}
+.tile.out{opacity:.5}
+.tile.out .th b{text-decoration:line-through}
+.retire{min-height:36px;font-size:13px;padding:4px 12px}
+.retire.sel{background:var(--bad);color:#fff;border-color:var(--bad)}
+.tiles.mini .tile{padding:10px 12px;gap:6px}
+.tiles.mini .opts{display:flex;flex-wrap:wrap;gap:4px}
+.tiles.mini .opt{padding:2px 8px;font-size:13px}
+.tiles.mini .opt.on{font-size:14px}
+
+/* 身份卡（按住查看） */
+.role{position:relative;width:100%;text-align:left;font:inherit;color:var(--ink);border-radius:var(--r-lg);padding:18px 20px;display:flex;flex-direction:column;gap:10px;border:1.5px solid var(--line);background:var(--surface);
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none;cursor:pointer}
+.role .cover{display:flex;align-items:center;gap:14px}
+.role .face{display:none;flex-direction:column;gap:10px}
+.role.show .cover{display:none}
+.role.show .face{display:flex}
+.role:not(.show){border-style:dashed;border-width:2px;background-image:repeating-linear-gradient(135deg,transparent 0 12px,var(--sunken) 12px 24px)}
+.role .badge{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;flex:none;background:var(--brand);color:var(--brand-ink)}
+.role .badge .ico{width:24px;height:24px}
+.role .head{display:flex;align-items:center;gap:12px}
+.role .kicker{font-size:12px;font-weight:700;letter-spacing:.1em}
+.role h2{font-size:22px}
+.role.show.good{border-color:var(--good);background:var(--good-soft)}
+.role.show.good .badge{background:var(--good);color:#fff}.role.show.good .kicker{color:var(--good)}
+.role.show.evil{border-color:var(--bad);background:var(--bad-soft)}
+.role.show.evil .badge{background:var(--bad);color:#fff}.role.show.evil .kicker{color:var(--bad)}
+.role .facts{display:flex;flex-direction:column;gap:6px;border-top:1px dashed var(--line);padding-top:10px}
+.role .facts div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* 法医真相框 */
+.truth{border-radius:var(--r-lg);padding:14px 16px;display:flex;flex-direction:column;gap:10px;border:1.5px dashed var(--line);background:var(--surface)}
+.truth.open{border-style:solid;border-color:var(--hl);background:var(--hl-soft)}
+.truth .facts{display:flex;flex-direction:column;gap:8px}
+.truth .facts div{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.truth .k{font-size:13px;color:var(--muted);width:3em;flex:none}
+.truth button{min-height:40px}
+
+/* 房间号 */
+.code{display:flex;gap:8px}
+.code span{width:56px;height:66px;border-radius:12px;background:var(--sunken);border:1.5px solid var(--line);display:grid;place-items:center;font-family:var(--mono);font-weight:600;font-size:34px;color:var(--brand)}
+.joinlink{display:flex;gap:8px;align-items:center;background:var(--sunken);border-radius:var(--r);padding:8px 8px 8px 12px}
+.joinlink code{flex:1;min-width:0;font-family:var(--mono);font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.joinlink button{min-height:36px;padding:4px 12px;font-size:14px}
+
+/* 结果 */
+.verdict{display:flex;gap:14px;align-items:center;padding:18px;border-radius:var(--r-lg)}
+.verdict .vi{width:52px;height:52px;border-radius:50%;display:grid;place-items:center;flex:none}
+.verdict .vi .ico{width:28px;height:28px}
+.verdict h2{font-size:26px}
+.verdict.good{background:var(--good-soft);border:1.5px solid var(--good)}
+.verdict.good .vi{background:var(--good);color:#fff}
+.verdict.evil{background:var(--bad-soft);border:1.5px solid var(--bad)}
+.verdict.evil .vi{background:var(--bad);color:#fff}
+.verdict.none{background:var(--sunken);border:1.5px solid var(--line)}
+.verdict.none .vi{background:var(--line);color:var(--ink)}
+.recon{font-family:var(--serif);font-size:18px;line-height:2}
+.recon .av,.panel p .av{display:inline-grid;vertical-align:middle;width:26px;height:26px;font-size:12px;font-family:var(--sans);margin-right:2px}
+.alog{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.alog li{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border-radius:12px;background:var(--sunken);font-size:14px}
+.alog li .t{flex:1;min-width:0}
+.alog li .cards{margin-top:4px}
+
+/* 首页 */
+.hero{display:flex;flex-direction:column;gap:10px;padding:4px 2px 2px}
+.hero p{color:var(--muted);font-size:15px}
+.tape{height:26px;border-radius:6px;background:repeating-linear-gradient(-45deg,var(--hl) 0 16px,var(--ink) 16px 32px);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.tape span{background:var(--hl);color:var(--hl-ink);font-family:var(--mono);font-weight:600;font-size:12px;letter-spacing:.3em;padding:0 10px}
+.hero .demo{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:15px}
+.divider{display:flex;align-items:center;gap:12px;color:var(--muted);font-size:13px}
+.divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.leavebox{border-color:var(--bad);background:var(--bad-soft)}
+.testbar{border-style:dashed}
+.waiting{display:flex;align-items:center;gap:12px}
+.dots{display:inline-flex;gap:4px;flex:none}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--muted);opacity:.4}
+@media (prefers-reduced-motion:no-preference){
+  .pop{animation:pop .35s cubic-bezier(.2,.8,.2,1)}
+  @keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+  .rise{animation:rise .4s cubic-bezier(.2,.8,.2,1)}
+  @keyframes rise{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}
+  .dots i{animation:blink 1.2s infinite}
+  .dots i:nth-child(2){animation-delay:.2s}.dots i:nth-child(3){animation-delay:.4s}
+  @keyframes blink{0%,100%{opacity:.25}50%{opacity:1}}
+}
+@media (max-width:380px){.code span{width:48px;height:58px;font-size:30px}.masthead h1{font-size:19px}.opt,button.opt{font-size:13px}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ls={get(k){try{return localStorage.getItem("ws-"+k)}catch(e){return null}},set(k,v){try{v==null?localStorage.removeItem("ws-"+k):localStorage.setItem("ws-"+k,v)}catch(e){}}};
+const CH="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+const rid=n=>Array.from({length:n},()=>CH[Math.random()*CH.length|0]).join("");
+
+/* ---------- 图标 ---------- */
+const P={
+  lens:'<circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/>',
+  mute:'<path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/><path d="M3 3l18 18"/>',
+  mask:'<path d="M3 7c3-2 15-2 18 0 0 6-3 10-6 10-1.5 0-2-2-3-2s-1.5 2-3 2c-3 0-6-4-6-10z"/><path d="M8 11h2M14 11h2"/>',
+  link:'<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  shield:'<path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/>',
+  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff:'<path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3 3.8M6.6 6.6C3.8 8.4 2 12 2 12s4 7 10 7a9.6 9.6 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.5-4 3-6 6.5-6s6 2 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14c2 .6 3.3 2.6 3.5 6"/>',
+  door:'<path d="M14 4H6v16h8"/><path d="M10 12h11M18 9l3 3-3 3"/>',
+  check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
+  x:'<path d="M6 6l12 12M18 6L6 18"/>',
+  alert:'<path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17.5v.5"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+  copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  play:'<path d="M7 5l12 7-12 7z"/>',
+  bot:'<rect x="5" y="8" width="14" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01"/>',
+  arrow:'<path d="M5 12h14M13 6l6 6-6 6"/>',
+  flag:'<path d="M5 21V4h11l-2 4 2 4H5"/>',
+  board:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 9h8M8 13h5"/><circle cx="16" cy="15.5" r="1.5"/>',
+  cards:'<rect x="3" y="6" width="12" height="15" rx="2"/><path d="M8 3h11a2 2 0 0 1 2 2v13"/>',
+  pin:'<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+};
+const ic=(n,cls="")=>`<svg class="ico ${cls}" viewBox="0 0 24 24" aria-hidden="true">${P[n]}</svg>`;
+const ROLE_ICON={forensic:"mute",detective:"lens",killer:"mask",accomplice:"link"};
+
+let C=null,RO,SD,TILE={};
+let pid=ls.get("pid");if(!pid||!/^[A-Za-z0-9_-]{6,40}$/.test(pid)){pid="p"+rid(16);ls.set("pid",pid)}
+let room=null,asId="",V=null,es=null,conn="";
+const L={name:ls.get("name")||"",joinCode:"",err:"",busy:false,confirmLeave:false,hold:false,copied:false,
+  d:null,key:"",lastScreen:"",truth:false,strike:new Set(),strikeKey:""};
+function freshDraft(){return {w:null,c:null,marks:{},retire:null,acc:false,target:null,aw:null,ac:null,sure:false,next:false,passSure:false}}
+
+/* ---------- 网络 ---------- */
+async function api(action,extra={}){
+  const r=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action,pid,room,as:asId,...extra})});
+  const j=await r.json().catch(()=>({error:"服务器没有响应。"}));
+  if(!r.ok)throw new Error(j.error||"操作失败。");
+  return j;
+}
+async function act(fn){
+  if(L.busy)return;L.busy=true;L.err="";render();
+  try{await fn()}catch(e){L.err=e.message||"操作失败，请重试。"}
+  L.busy=false;render();
+}
+function connect(){
+  es&&es.close();conn="connecting";
+  es=new EventSource(`/events?room=${encodeURIComponent(room)}&pid=${encodeURIComponent(pid)}${asId?`&as=${encodeURIComponent(asId)}`:""}`);
+  es.onmessage=e=>{conn="ok";onView(JSON.parse(e.data))};
+  es.onerror=()=>{conn="lost";render();
+    fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"hello",pid,room})})
+      .then(r=>{if(r.status===404){L.err="这个房间已经不存在了（可能服务器重启过）。";goHome()}}).catch(()=>{});
+  };
+}
+function enter(code){
+  room=code;asId="";V=null;ls.set("room",code);
+  if(location.hash.slice(1)!==code)history.replaceState(null,"","#"+code);
+  connect();render();
+}
+function goHome(){
+  es&&es.close();es=null;room=null;V=null;asId="";ls.set("room",null);
+  history.replaceState(null,"",location.pathname);render();
+}
+function onView(v){
+  const key=v.status+"|"+(v.round||0)+"|"+v.me;
+  if(key!==L.key||!L.d){L.d=freshDraft();L.key=key}
+  // 划牌记录：每局、每个视角单独记
+  const sk=v.gid?v.gid+"|"+v.me:"";
+  if(sk!==L.strikeKey){L.strikeKey=sk;L.strike=new Set();L.truth=false;
+    if(sk){try{const o=JSON.parse(ls.get("strike")||"{}");if(o.k===sk)L.strike=new Set(o.a)}catch(e){}}}
+  V=v;render();
+}
+function saveStrike(){ls.set("strike",JSON.stringify({k:L.strikeKey,a:[...L.strike]}))}
+
+/* ---------- 小部件 ---------- */
+const nm=id=>(V&&V.players.find(p=>p.id===id)?.name)||"某人";
+const amHost=()=>V&&V.host===pid;
+const me=()=>V?V.me:pid;
+const rn=r=>RO[r].name;
+const myRole=()=>V&&V.my?V.my.role:null;
+const isForensic=()=>myRole()==="forensic";
+function av(id){let h=0;for(const c of String(id))h=(h*31+c.charCodeAt(0))|0;const n=nm(id);
+  return `<span class="av" style="background:var(--a${(Math.abs(h)%8)+1})" aria-hidden="true">${esc([...n][0]||"?")}</span>`}
+const head=()=>{
+  let t="";
+  if(room){t=esc(room);if(V&&V.round&&!["lobby","end","crime"].includes(V.status))t=(V.status==="final"?"最后指认":`第 ${V.round}/${V.rounds} 轮`)+" · "+t}
+  return `<header class="masthead"><div class="brand"><span class="logo" aria-hidden="true">证</span><h1>无声<mark>证词</mark></h1></div>${t?`<span class="tag">${t}</span>`:""}</header>`;
+};
+const errLine=()=>L.err?`<p class="err pop" role="alert">${ic("alert")}${esc(L.err)}</p>`:"";
+const connLine=()=>conn==="lost"?`<p class="err">${ic("alert")}连接中断，正在重连……</p>`:"";
+const waiting=t=>`<section class="panel"><div class="waiting"><span class="dots"><i></i><i></i><i></i></span><p>${t}</p></div></section>`;
+const dock=(inner,hint="")=>`<div class="dock">${hint?`<p class="hint">${hint}</p>`:""}${inner}</div>`;
+const silence=()=>`<p class="silence">${ic("mute")}不能说话，不能用表情和手势</p>`;
+const W=x=>`<span class="cd w">${esc(x)}</span>`, Cc=x=>`<span class="cd c">${esc(x)}</span>`;
+
+function RULES(open){
+  const rl=(r,t)=>`<li><span class="rb" style="background:var(--${RO[r].side==="evil"?"bad":"good"}-soft);color:var(--${RO[r].side==="evil"?"bad":"good"})">${ic(ROLE_ICON[r])}</span><span><b>${esc(rn(r))}</b>${t}</span></li>`;
+  return `<details class="panel" ${open?"open":""}><summary>怎么玩</summary>
+  <ul class="rolelist">
+    ${rl("forensic","（1 人）知道全部真相，<b>全程不许说话</b>，只能在勘查板上做标记。")}
+    ${rl("killer","（1 人）开局从自己面前的牌里选 1 件凶器、1 条线索作为真相。")}
+    ${rl("accomplice",`（可选，${C.accompliceMin} 人以上）知道凶手和真相，帮凶手打掩护。`)}
+    ${rl("detective","其他人。找出凶手、凶器和线索。")}
+  </ul>
+  <ol class="rules">
+  <li>除法医外，每人面前有 ${C.handSize} 张<b style="color:var(--wpn)">凶器</b>和 ${C.handSize} 张<b style="color:var(--clu)">线索</b>，所有人都看得到。</li>
+  <li>第 1 轮，法医标记<b>死因</b>，再从 ${C.firstOffer} 块随机勘查板里挑 ${C.firstPick} 块，每块标一个选项。</li>
+  <li>大家按手机上的顺序发言推理，凶手也要假装一起推理。讨论完由法医进入下一轮。</li>
+  <li>之后每轮，法医拿到 ${C.laterOffer} 块新板：标记其中 1 块，再撤下 1 块旧板。一共 ${C.rounds} 轮。</li>
+  <li>每人 <b>1 枚徽章</b>，讨论时随时可用：指认「某人 + 他的 1 件凶器 + 1 条线索」，三样全对才算破案。</li>
+  <li><b>指认内容保密</b>，失败只公布是谁失败了。凶手、帮凶也能用徽章装样子，但一定算失败。</li>
+  <li>第 ${C.rounds} 轮后是<b>最后指认</b>：还有徽章的人逐个决定指认或放弃。</li>
+  <li>有人说中，侦探方赢（法医也算）；没人说中，或所有侦探都用完了徽章，凶手方赢。</li>
+  </ol>
+  <p class="muted small">法医小贴士：一个标记最好能同时指向凶器和线索。比如凶器「冰锥」、线索「雨衣」，「触感：冰冷」「天气：下雨」都很好用。</p>
+  </details>`;
+}
+
+function steps(){
+  const names=["选牌"];for(let i=1;i<=V.rounds;i++)names.push(`第${i}轮`);names.push("最后指认");
+  const at=V.status==="crime"?0:V.status==="final"?V.rounds+1:V.round;
+  return `<nav class="steps" style="grid-template-columns:repeat(${names.length},1fr)" aria-label="本局进度">${names.map((n,i)=>`<div class="${i<at?"done":i===at?"now":""}"${i===at?' aria-current="step"':""}><i></i>${n}</div>`).join("")}</nav>`;
+}
+function strip(){
+  if(!V||!V.seat)return "";
+  return `<div class="strip" aria-label="玩家">${V.seat.map(i=>{
+    const f=i===V.forensic;let st="";
+    if(!f){if(V.used.includes(i))st=`<span class="gone" title="徽章已用">${ic("x")}</span>`;
+      else if(V.passed.includes(i))st=`<span class="gone" title="放弃指认">${ic("flag")}</span>`;
+      else st=`<span class="bdg" title="还有徽章">${ic("shield")}</span>`}
+    return `<span class="chip ${i===me()?"me":""} ${f?"fx":""}">${av(i)}<span>${esc(nm(i))}</span>${f?`<span class="rt">${esc(rn("forensic"))}</span>`:""}${st}</span>`}).join("")}</div>`;
+}
+
+function roleCard(){
+  const m=V.my;if(!m)return"";
+  const facts=[];
+  if(m.role==="forensic"){
+    facts.push(`<div><span class="muted small">${esc(rn("killer"))}</span>${av(m.killer)}<b>${esc(nm(m.killer))}</b></div>`);
+    if(m.accomplice)facts.push(`<div><span class="muted small">${esc(rn("accomplice"))}</span>${av(m.accomplice)}<b>${esc(nm(m.accomplice))}</b></div>`);
+  }else if(m.role==="killer"){
+    if(m.accomplice)facts.push(`<div><span class="muted small">你的${esc(rn("accomplice"))}</span>${av(m.accomplice)}<b>${esc(nm(m.accomplice))}</b></div>`);
+  }else if(m.role==="accomplice"){
+    facts.push(`<div><span class="muted small">${esc(rn("killer"))}</span>${av(m.killer)}<b>${esc(nm(m.killer))}</b></div>`);
+  }
+  if(m.role!=="detective")facts.push(`<div><span class="muted small">真相</span>${m.answer?W(m.answer.w)+Cc(m.answer.c):'<span class="muted small">凶手还在选</span>'}</div>`);
+  return `<button class="role ${m.side} ${L.hold?"show":""}" id="roleBtn" aria-label="按住查看身份">
+    <span class="cover"><span class="badge">${ic("eye")}</span><span><b style="font-family:var(--serif);font-size:18px">我的身份</b><br><span class="muted small">按住查看，松手盖上</span></span></span>
+    <span class="face"><span class="head"><span class="badge">${ic(ROLE_ICON[m.role])}</span><span><span class="kicker">${esc(SD[m.side].team)}</span><h2>${esc(rn(m.role))}</h2></span></span>
+      <span>${esc(RO[m.role].desc)}</span>${facts.length?`<span class="facts">${facts.join("")}</span>`:""}</span>
+  </button>`;
+}
+
+// 法医专用：点一下显示/收起真相
+function truthBox(){
+  const m=V.my;if(!m||m.role!=="forensic")return "";
+  if(!L.truth)return `<section class="truth"><div class="row"><span class="grow small muted">真相已收起。做标记前打开看一眼，注意别让旁边的人看到。</span><button data-a="truth">${ic("eye")}显示</button></div></section>`;
+  return `<section class="truth open pop"><div class="row"><span class="label grow">${ic("pin")}真相 · 只有你能看到</span><button class="ghost" data-a="truth">${ic("eyeoff")}收起</button></div>
+    <div class="facts"><div><span class="k">${esc(rn("killer"))}</span>${av(m.killer)}<b>${esc(nm(m.killer))}</b></div>
+    ${m.accomplice?`<div><span class="k">${esc(rn("accomplice"))}</span>${av(m.accomplice)}<b>${esc(nm(m.accomplice))}</b></div>`:""}
+    <div><span class="k">凶器</span>${m.answer?W(m.answer.w):'<span class="muted small">还没选</span>'}</div>
+    <div><span class="k">线索</span>${m.answer?Cc(m.answer.c):'<span class="muted small">还没选</span>'}</div></div></section>`;
+}
+
+// 所有人面前的牌。侦探可以点牌划掉（只有自己看得到）
+function hands(opt={}){
+  const end=V.status==="end";
+  const showTruth=end||(isForensic()&&L.truth);
+  const ans=end?V.answer:(isForensic()?V.my.answer:null);
+  const killer=end?V.killer:(isForensic()?V.my.killer:null);
+  const canStrike=!end&&!isForensic();
+  const ids=V.seat.filter(id=>V.hands[id]);
+  const card=(x,t,isK)=>{
+    const hit=showTruth&&isK&&ans&&(t==="w"?ans.w:ans.c)===x;
+    const k=t+":"+x;const xd=canStrike&&L.strike.has(k);
+    return canStrike?`<button class="cd ${t} ${xd?"x":""}" data-st="${esc(k)}" aria-pressed="${xd}">${esc(x)}</button>`
+      :`<span class="cd ${t} ${hit?"hit":""}">${esc(x)}</span>`;
+  };
+  const rows=ids.map(id=>{
+    const h=V.hands[id];const isK=id===killer;
+    let pills="";
+    if(id===me())pills+=`<span class="pill host">我</span>`;
+    if(end){const r=V.roles[id];if(r!=="detective")pills+=`<span class="pill evil">${esc(rn(r))}</span>`}
+    else if(showTruth&&isK)pills+=`<span class="pill evil">${esc(rn("killer"))}</span>`;
+    return `<div class="dossier ${id===me()?"me":""} ${showTruth&&isK?"killer":""}"><div class="hd">${av(id)}<span class="nm">${esc(nm(id))}</span>${pills}</div>
+      <div class="cards">${h.w.map(x=>card(x,"w",isK)).join("")}</div><div class="cards">${h.c.map(x=>card(x,"c",isK)).join("")}</div></div>`;
+  }).join("");
+  return `<section class="panel"><div class="row" style="justify-content:space-between"><span class="label">${ic("cards")}桌面上的牌</span><span class="legend"><span><i style="background:var(--wpn)"></i>凶器</span><span><i style="background:var(--clu)"></i>线索</span></span></div>
+    ${canStrike?`<p class="small muted">点一张牌可以划掉，帮你排除嫌疑。只有你自己看得到。</p>`:""}
+    <div class="dossiers">${rows}</div></section>`;
+}
+
+function optsHTML(key,mark){return `<div class="opts">${TILE[key].opts.map((o,i)=>`<span class="opt ${i===mark?"on":""}">${esc(o)}</span>`).join("")}</div>`}
+function tilesView(){
+  if(!V.tiles||!V.tiles.length)return "";
+  const fresh=t=>t.round===V.round&&V.round>1&&(V.status==="talk"||V.status==="final");
+  const list=V.tiles.map(t=>`<div class="tile ${fresh(t)?"rise":""}"><div class="th"><b>${esc(TILE[t.key].name)}</b>${fresh(t)?'<span class="new">新</span>':""}</div>${optsHTML(t.key,t.mark)}</div>`).join("");
+  const old=V.retired.length?`<details><summary class="small muted" style="cursor:pointer">已撤下的板（${V.retired.length}）</summary><div class="tiles mini" style="margin-top:8px">${V.retired.map(t=>`<div class="tile out"><div class="th"><b>${esc(TILE[t.key].name)}</b><span class="small muted">第 ${t.until} 轮撤下</span></div>${optsHTML(t.key,t.mark)}</div>`).join("")}</div></details>`:"";
+  return `<section class="panel"><span class="label">${ic("board")}法医的勘查板 · 黄色是法医的标记</span><div class="tiles">${list}</div>${old}</section>`;
+}
+function failsView(){
+  if(!V.fails.length)return "";
+  return `<section class="panel"><span class="label">${ic("x")}指认失败</span><ul class="alog">${V.fails.map(f=>`<li>${av(f.by)}<span class="t"><b>${esc(nm(f.by))}</b> 指认失败<span class="muted small"> · 第 ${f.round} 轮</span></span></li>`).join("")}</ul></section>`;
+}
+
+function viewBar(){
+  if(!V||!amHost())return"";
+  const bots=V.players.filter(p=>p.bot);if(!bots.length)return"";
+  const can=["crime","hint","talk","final"].includes(V.status);
+  return `<section class="panel testbar"><label class="label" for="viewAs">${ic("bot")}测试模式 · 现在假装是谁的手机</label>
+    <select id="viewAs"><option value="" ${!asId?"selected":""}>${esc(nm(pid))}（我自己）</option>${bots.map(b=>`<option value="${esc(b.id)}" ${asId===b.id?"selected":""}>${esc(b.name)}</option>`).join("")}</select>
+    ${can?`<button class="ghost" data-a="botsAct" ${L.busy?"disabled":""}>${ic("bot")}让测试玩家完成这一步</button>`:""}</section>`;
+}
+function leaveBlock(){
+  if(!L.confirmLeave)return `<button class="ghost" data-a="leave">${ic("door")}离开房间</button>`;
+  const inGame=V.status!=="lobby"&&V.status!=="end"&&(V.seat||[]).includes(pid);
+  return `<section class="panel leavebox pop"><h3>确定离开房间？</h3>
+    <p class="small">${inGame?"游戏还在进行，你离开后这一局会直接中止。":"离开后可以用房间号重新加入。"}${amHost()?" 你是房主，离开后房主会交给下一位玩家。":""}</p>
+    <div class="row"><button class="danger grow" id="leaveYes" data-a="leaveYes">确定离开</button><button class="grow" data-a="leaveNo">取消</button></div></section>`;
+}
+
+/* ---------- 页面 ---------- */
+function vHome(){
+  return `${head()}
+  <section class="hero"><div class="tape" aria-hidden="true"><span>CRIME SCENE · 现场勿入</span></div>
+    <p>一桩命案，凶手就坐在桌边。法医知道真相却<b style="color:var(--ink)">不能开口</b>，只能在勘查板上做标记。你能读懂吗？</p>
+    <div class="demo"><span class="cd w">冰锥</span><span class="cd c">雨衣</span><span class="muted">←</span><span class="opt on" style="padding:2px 10px">冰冷</span><span class="opt on" style="padding:2px 10px">下雨</span></div></section>
+  <section class="panel"><label class="label" for="name">你的昵称</label><input id="name" maxlength="8" value="${esc(L.name)}" placeholder="例如：老周" autocomplete="nickname" enterkeyhint="done"></section>
+  <section class="panel"><label class="label" for="joinCode">${ic("users")}加入朋友的房间</label>
+    <div class="row"><input id="joinCode" class="grow" maxlength="4" value="${esc(L.joinCode)}" placeholder="房间号" autocomplete="off" autocapitalize="characters" enterkeyhint="go"><button class="secondary" style="width:auto;flex:none" data-a="join" ${L.busy?"disabled":""}>加入${ic("arrow")}</button></div></section>
+  <div class="divider">或者</div>
+  <button class="primary" data-a="create" ${L.busy?"disabled":""}>${ic("plus")}我来开房间</button>
+  <button class="secondary" data-a="solo" ${L.busy?"disabled":""}>${ic("bot")}一个人先试玩</button>
+  ${errLine()}${RULES(false)}`;
+}
+
+function lobbyInfo(){
+  const n=V.players.length;
+  if(n<C.minPlayers)return `还差 ${C.minPlayers-n} 人才能开始（${C.minPlayers}–${C.maxPlayers} 人）`;
+  const acc=V.settings.accomplice&&n>=C.accompliceMin;
+  return `${n} 人局：${rn("forensic")} 1 · ${rn("killer")} 1${acc?` · ${rn("accomplice")} 1`:""} · ${rn("detective")} ${n-2-(acc?1:0)}`;
+}
+function vLobby(){
+  const host=amHost();const link=location.origin+location.pathname+"#"+room;const n=V.players.length;const S=V.settings;
+  const plist=V.players.map(p=>`<li>${av(p.id)}<span class="nm">${esc(p.name)}${p.id===pid?' <span class="muted small">（我）</span>':""}</span>${S.forensic===p.id?`<span class="pill fx">${esc(rn("forensic"))}</span>`:""}${p.id===V.host?'<span class="pill host">房主</span>':p.bot?'<span class="pill bot">测试</span>':""}</li>`).join("");
+  const settings=host?`<section class="panel"><span class="label">房主设置</span>
+    <div><p style="font-weight:500">谁当${esc(rn("forensic"))}</p><p class="small muted">${esc(rn("forensic"))}最考验功力，第一次玩建议让熟悉规则的人来。</p></div>
+    <div class="who"><button class="rnd ${!S.forensic?"sel":""}" data-fx="" aria-pressed="${!S.forensic}">随机</button>${V.players.map(p=>`<button data-fx="${esc(p.id)}" class="${S.forensic===p.id?"sel":""}" aria-pressed="${S.forensic===p.id}">${av(p.id)}${esc(p.name)}</button>`).join("")}</div>
+    <label class="switch"><span>加入${esc(rn("accomplice"))}<br><span class="muted small">${C.accompliceMin} 人以上生效${n<C.accompliceMin?`，现在 ${n} 人`:""}</span></span><input type="checkbox" id="accChk" ${S.accomplice&&n>=C.accompliceMin?"checked":""} ${n<C.accompliceMin?"disabled":""}></label>
+    <p class="small muted">${lobbyInfo()}</p></section>`
+   :`${waiting(`等房主 <b>${esc(nm(V.host))}</b> 开始游戏`)}<p class="small muted" style="text-align:center">${lobbyInfo()} · ${esc(rn("forensic"))}：${S.forensic?esc(nm(S.forensic)):"随机"}</p>`;
+  return `${head()}
+  <section class="panel"><span class="label">房间号 · 让大家输入它加入</span>
+    <div class="code" aria-label="房间号 ${esc(room)}">${[...room].map(c=>`<span>${esc(c)}</span>`).join("")}</div>
+    <div class="joinlink"><code id="linkText">${esc(link)}</code><button id="copyBtn" data-a="copy">${ic(L.copied?"check":"copy")}${L.copied?"已复制":"复制"}</button></div></section>
+  <section class="panel"><span class="label">${ic("users")}已加入 ${n} 人 · 至少 ${C.minPlayers} 人</span><ul class="plist">${plist}</ul>
+    ${host?`<button class="ghost" data-a="addBot" ${n>=C.maxPlayers||L.busy?"disabled":""}>${ic("plus")}添加测试玩家</button>`:""}</section>
+  ${settings}${errLine()}${RULES(false)}
+  ${host?dock(`<button class="primary" data-a="start" ${n<C.minPlayers||L.busy?"disabled":""}>${ic("play")}开始游戏</button>`,n<C.minPlayers?`还差 ${C.minPlayers-n} 人`:""):""}`;
+}
+
+function vCrime(){
+  const m=V.my;const d=L.d;
+  if(m.role==="killer"){
+    const h=V.hands[me()];
+    return `${head()}${steps()}${strip()}${roleCard()}
+    <section class="panel pop"><h3>你是${esc(rn("killer"))}，挑好作案的两张牌</h3>
+      <p class="small muted">挡好屏幕。选完后${esc(rn("forensic"))}会照着它们做标记。挑那些不太好描述、又跟别人的牌有点像的。</p>
+      <span class="label">凶器 · 选 1 件</span><div class="cards">${h.w.map(x=>`<button class="cd w pick ${d.w===x?"sel":""}" data-cw="${esc(x)}" aria-pressed="${d.w===x}">${esc(x)}</button>`).join("")}</div>
+      <span class="label">线索 · 选 1 条</span><div class="cards">${h.c.map(x=>`<button class="cd c pick ${d.c===x?"sel":""}" data-cc="${esc(x)}" aria-pressed="${d.c===x}">${esc(x)}</button>`).join("")}</div></section>
+    ${errLine()}${dock(`<button class="primary" data-a="crime" ${!d.w||!d.c||L.busy?"disabled":""}>${ic("check")}就是这两张</button>`,!d.w||!d.c?`还要选${!d.w?"凶器":""}${!d.w&&!d.c?"和":""}${!d.c?"线索":""}`:"")}
+    ${hands()}`;
+  }
+  const f=m.role==="forensic";
+  return `${head()}${steps()}${strip()}${roleCard()}
+    ${f?silence():""}
+    ${waiting(`${esc(rn("killer"))}正在悄悄选牌。大家先按住上面的卡片看看自己的身份。`)}
+    ${f?"":`<p class="notice">${ic("info")}<span>${esc(rn("forensic"))}是 <b>${esc(nm(V.forensic))}</b>，从现在起 TA 不能说话。趁这个时间看看大家面前都有什么牌。</span></p>`}
+    ${errLine()}${hands()}`;
+}
+
+function hintEditor(){
+  const d=L.d;const r1=V.round===1;const offer=V.my.offer||[];
+  const marked=offer.filter(k=>k in d.marks).length;const need=r1?C.firstPick:1;
+  const tileEd=(k,fixed)=>`<div class="tile ${k in d.marks?"pick":""}"><div class="th"><b>${esc(TILE[k].name)}</b>${fixed?'<span class="pill wait">必标</span>':(k in d.marks?'<span class="pill ok">已选</span>':"")}</div>
+    <div class="opts">${TILE[k].opts.map((o,i)=>`<button class="opt ${d.marks[k]===i?"on":""}" data-mk="${esc(k)}" data-mi="${i}" aria-pressed="${d.marks[k]===i}">${esc(o)}</button>`).join("")}</div></div>`;
+  let html,ok,hint;
+  if(r1){
+    ok="cause" in d.marks&&marked===need;
+    hint=!("cause" in d.marks)?"先在死因上标一项":marked<need?`再选 ${need-marked} 块板`:"";
+    html=`<section class="panel"><h3>第 1 轮标记</h3><p class="small muted">先标死因，再从 ${offer.length} 块板里挑 <b>${need}</b> 块各标一项。再点一次可以取消。</p>
+      <div class="tiles">${tileEd("cause",true)}</div>
+      <span class="label">随机勘查板 · 已选 ${marked}/${need}</span><div class="tiles">${offer.map(k=>tileEd(k)).join("")}</div></section>`;
+  }else{
+    const olds=V.tiles.filter(t=>t.key!=="cause");
+    ok=marked===1&&!!d.retire;
+    hint=!d.retire&&marked!==1?"撤下 1 块旧板，再标记 1 块新板":!d.retire?"还要撤下 1 块旧板":marked!==1?"还要标记 1 块新板":"";
+    html=`<section class="panel"><h3>第 ${V.round} 轮标记</h3>
+      <span class="label">① 撤下 1 块用处不大的旧板</span><div class="tiles mini">${olds.map(t=>`<div class="tile ${d.retire===t.key?"out":""}"><div class="th"><b>${esc(TILE[t.key].name)}</b><button class="retire ${d.retire===t.key?"sel":""}" data-rt="${esc(t.key)}" aria-pressed="${d.retire===t.key}">${d.retire===t.key?ic("check")+"撤下":"撤下"}</button></div>${optsHTML(t.key,t.mark)}</div>`).join("")}</div>
+      <span class="label">② 在 ${offer.length} 块新板里标记 1 块</span><div class="tiles">${offer.map(k=>tileEd(k)).join("")}</div></section>`;
+  }
+  return html+errLine()+dock(`<button class="primary" data-a="hint" ${!ok||L.busy?"disabled":""}>${ic("check")}公布标记</button>`,hint);
+}
+function vHint(){
+  if(isForensic())return `${head()}${steps()}${silence()}${truthBox()}${hintEditor()}${hands()}${roleCard()}`;
+  return `${head()}${steps()}${strip()}
+    ${waiting(`${esc(rn("forensic"))} <b>${esc(nm(V.forensic))}</b> 正在做第 ${V.round} 轮标记${V.round>1?"，会撤下 1 块旧板、换上 1 块新板":""}`)}
+    ${tilesView()}${errLine()}${failsView()}${hands()}${roleCard()}`;
+}
+
+function accusePanel(){
+  const d=L.d;const others=V.seat.filter(id=>V.hands[id]&&id!==me());
+  let html=`<section class="panel pop" id="accPanel"><h3>${ic("shield")} 指认</h3><p class="small muted">只有你自己看得到指认的内容。失败的话，大家只会看到你失败了。</p>
+    <span class="label">① 谁是凶手</span><div class="who">${others.map(id=>`<button data-tg="${esc(id)}" class="${d.target===id?"sel":""}" aria-pressed="${d.target===id}">${av(id)}${esc(nm(id))}</button>`).join("")}</div>`;
+  if(d.target){
+    const h=V.hands[d.target];
+    html+=`<span class="label">② TA 的哪件凶器</span><div class="cards">${h.w.map(x=>`<button class="cd w pick ${d.aw===x?"sel":""} ${L.strike.has("w:"+x)?"x":""}" data-aw="${esc(x)}" aria-pressed="${d.aw===x}">${esc(x)}</button>`).join("")}</div>
+      <span class="label">③ TA 的哪条线索</span><div class="cards">${h.c.map(x=>`<button class="cd c pick ${d.ac===x?"sel":""} ${L.strike.has("c:"+x)?"x":""}" data-ac="${esc(x)}" aria-pressed="${d.ac===x}">${esc(x)}</button>`).join("")}</div>`;
+  }
+  return html+`</section>`;
+}
+function myBadge(){
+  const a=V.my.accusation;
+  if(a)return `<section class="panel"><span class="label">${ic("shield")}我的徽章</span><p>第 ${a.round} 轮指认了 <b>${esc(nm(a.target))}</b>：${W(a.w)} ${Cc(a.c)}，<b style="color:var(--bad)">不对</b>。</p><p class="small muted">你还可以继续参与讨论。</p></section>`;
+  if(V.passed.includes(me()))return `<section class="panel"><p class="muted">${ic("flag")} 你放弃了最后指认。</p></section>`;
+  return "";
+}
+function accuseDock(final){
+  const d=L.d;
+  if(!d.acc){
+    if(final)return d.passSure
+      ?dock(`<div class="row"><button class="danger" data-a="passGo" ${L.busy?"disabled":""}>确定放弃</button><button data-a="passNo">再想想</button></div>`,"放弃后就不能再指认了")
+      :dock(`<button class="primary" data-a="accOpen">${ic("shield")}我要指认</button><button class="ghost" data-a="passAsk">${ic("flag")}我没把握，放弃</button>`,"最后机会：指认或者放弃");
+    return dock(`<button class="primary" data-a="accOpen">${ic("shield")}用徽章指认（只有 1 次）</button>`);
+  }
+  const ready=d.target&&d.aw&&d.ac;
+  if(ready&&d.sure)return dock(`<div class="row"><button class="danger" data-a="accGo" ${L.busy?"disabled":""}>确定，用掉徽章</button><button data-a="accBack">再想想</button></div>`,
+    `指认 <b>${esc(nm(d.target))}</b> 用 ${W(d.aw)} 作案、留下 ${Cc(d.ac)}？`);
+  return dock(`<div class="row"><button class="primary" data-a="accSure" ${!ready?"disabled":""}>指认</button><button data-a="accClose" style="flex:0 0 auto">收起</button></div>`,
+    !d.target?"先选一个人":!d.aw?"再选凶器":!d.ac?"再选线索":"");
+}
+function forensicDock(){
+  const d=L.d;const last=V.round>=V.rounds;
+  if(d.next)return dock(`<div class="row"><button class="danger" data-a="nextGo" ${L.busy?"disabled":""}>确定</button><button data-a="nextNo">再等等</button></div>`,
+    last?"结束后进入最后指认，还有徽章的人逐个决定":`确定结束讨论，进入第 ${V.round+1} 轮？`);
+  return dock(`<button class="primary" data-a="nextAsk">${last?"讨论结束，进入最后指认":`讨论结束，进入第 ${V.round+1} 轮`}${ic("arrow")}</button>`,"等所有人都发完言再点");
+}
+function vTalk(){
+  const f=isForensic();const last=V.round>=V.rounds;
+  const canAcc=!f&&!V.used.includes(me());
+  const order=`<section class="panel"><span class="label">${ic("users")}第 ${V.round} 轮 · 发言顺序</span>
+    <ol class="order">${V.order.map((id,k)=>`<li class="${id===me()?"me":""}"><span class="n">${k+1}</span>${av(id)}<span class="nm">${esc(nm(id))}${id===me()?"（我）":""}</span>${V.used.includes(id)?'<span class="pill wait">徽章已用</span>':""}</li>`).join("")}</ol>
+    <p class="small muted">依次说说你怀疑谁、为什么。${esc(rn("forensic"))}不能说话。</p></section>`;
+  return `${head()}${steps()}${f?silence():strip()}${last?`<p class="notice">${ic("alert")}<span>最后一轮了。讨论完还有一次最后指认的机会。</span></p>`:""}
+    ${f?truthBox():""}${tilesView()}${canAcc&&L.d.acc?accusePanel():""}${f?"":myBadge()}${order}${failsView()}${hands()}${roleCard()}${errLine()}
+    ${f?forensicDock():canAcc?accuseDock(false):""}`;
+}
+function vFinal(){
+  const f=isForensic();const holders=V.seat.filter(id=>id!==V.forensic&&!V.used.includes(id)&&!V.passed.includes(id));
+  const mine=holders.includes(me());
+  const list=`<section class="panel"><span class="label">${ic("shield")}最后指认 · 还剩 ${holders.length} 人没决定</span>
+    <ul class="plist">${V.seat.filter(id=>id!==V.forensic).map(id=>`<li>${av(id)}<span class="nm">${esc(nm(id))}${id===me()?' <span class="muted small">（我）</span>':""}</span>${
+      V.used.includes(id)?'<span class="pill wait">已指认</span>':V.passed.includes(id)?'<span class="pill wait">放弃</span>':'<span class="pill ok">考虑中</span>'}</li>`).join("")}</ul></section>`;
+  return `${head()}${steps()}${f?silence():strip()}
+    <p class="notice">${ic("alert")}<span>${V.rounds} 轮讨论结束。还有徽章的人逐个决定：指认，还是放弃。所有人决定完就揭晓。</span></p>
+    ${mine&&L.d.acc?accusePanel():""}${f?truthBox():myBadge()}${list}${tilesView()}${hands()}${roleCard()}${errLine()}
+    ${mine?accuseDock(true):waiting("等其他人做决定")}`;
+}
+
+function vEnd(){
+  const w=V.winner;
+  const cls=w||"none";
+  const icon=w==="good"?"lens":w==="evil"?"mask":"alert";
+  const title=w?`${esc(SD[w].name)}获胜`:"游戏中止";
+  const recon=V.answer?`<section class="panel rise"><span class="label">${ic("pin")}案情还原</span>
+    <p class="recon">${av(V.killer)} <b>${esc(nm(V.killer))}</b> 用 <span class="cd w hit">${esc(V.answer.w)}</span> 作案，现场留下了 <span class="cd c hit">${esc(V.answer.c)}</span>。</p>
+    ${V.solver?`<p class="small">${av(V.solver)} <b>${esc(nm(V.solver))}</b> 破了案。</p>`:""}</section>`:"";
+  const side=r=>RO[r].side;
+  const roles=`<section class="panel"><span class="label">${ic("users")}身份揭晓</span><ul class="plist">${V.seat.map(i=>{const r=V.roles[i];
+    return `<li>${av(i)}<span class="nm">${esc(nm(i))}${i===me()?' <span class="muted small">（我）</span>':""}</span><span class="pill ${side(r)==="evil"?"evil":r==="forensic"?"fx":"good"}">${esc(rn(r))}</span></li>`}).join("")}</ul></section>`;
+  const accs=V.accusations.length?`<section class="panel"><span class="label">${ic("shield")}所有指认</span><ul class="alog">${V.accusations.map(a=>`<li>${av(a.by)}<span class="t"><b>${esc(nm(a.by))}</b> 指认 ${esc(nm(a.target))} <span class="pill ${a.ok?"ok":"evil"}">${a.ok?"正确":"错误"}</span><span class="muted small"> · 第 ${a.round} 轮</span><div class="cards">${W(a.w)}${Cc(a.c)}</div></span></li>`).join("")}</ul></section>`:"";
+  return `${head()}
+  <section class="verdict ${cls} pop"><span class="vi">${ic(icon)}</span><div><h2>${title}</h2><p class="small">${esc(V.reason||"")}</p></div></section>
+  ${recon}${roles}${accs}${tilesView()}${hands()}${errLine()}
+  ${amHost()?dock(`<button class="primary" data-a="lobby">${ic("play")}回到房间，再来一局</button>`):waiting("等房主开下一局")}`;
+}
+function vSpectate(){
+  return `${head()}${strip()}<section class="panel"><h3>这一局已经开始了</h3><p class="muted">你已经在房间里了，房主开下一局时会自动加入。</p></section>${tilesView()}`;
+}
+
+function render(){
+  const app=$("#app");let key,html;
+  if(!C){app.innerHTML=`${waiting("加载中……")}${errLine()}`;return}
+  if(!room){key="home";
+    if(L.lastScreen==="home"&&$("#name")){L.name=$("#name").value;L.joinCode=$("#joinCode")?.value??L.joinCode}
+    html=vHome();}
+  else if(!V){key="load";html=`${head()}${waiting(conn==="lost"?"连不上房间，正在重试……":"正在进入房间……")}${errLine()}<button class="ghost" data-a="back">返回首页</button>`}
+  else if(V.status!=="lobby"&&!(V.seat||[]).includes(V.me)){key="spec";html=vSpectate()}
+  else{key=V.status+"|"+(V.round||0)+"|"+V.me;html={lobby:vLobby,crime:vCrime,hint:vHint,talk:vTalk,final:vFinal,end:vEnd}[V.status]();}
+  if(key!==L.lastScreen)window.scrollTo(0,0);
+  L.lastScreen=key;app.innerHTML=html+(room?connLine():"")+viewBar()+(room&&V?leaveBlock():"");
+}
+
+/* ---------- 交互 ---------- */
+function holdOn(e){const b=e.target.closest("#roleBtn");if(!b)return;e.preventDefault();L.hold=true;b.classList.add("show")}
+function holdOff(){if(!L.hold)return;L.hold=false;const b=$("#roleBtn");if(b)b.classList.remove("show")}
+document.addEventListener("pointerdown",holdOn);
+document.addEventListener("pointerup",holdOff);
+document.addEventListener("pointercancel",holdOff);
+window.addEventListener("blur",()=>{holdOff()});
+document.addEventListener("visibilitychange",()=>{holdOff();if(document.hidden&&L.truth){L.truth=false;render()}});
+document.addEventListener("contextmenu",e=>{if(e.target.closest("#roleBtn"))e.preventDefault()});
+
+function needName(){const n=($("#name")?.value||"").trim();if(!n){L.err="先填一个昵称。";render();$("#name")?.focus();return null}L.name=n;ls.set("name",n);return n}
+function createRoom(bots){const n=needName();if(!n)return;act(async()=>{const j=await api("create",{name:n,bots,room:""});enter(j.code)})}
+function joinRoom(){const n=needName();if(!n)return;
+  const c=($("#joinCode")?.value||"").trim().toUpperCase();
+  if(!/^[A-Z0-9]{4}$/.test(c)){L.err="房间号是 4 位字母或数字。";return render()}
+  act(async()=>{room=c;try{await api("join",{name:n})}catch(e){room=null;throw e}enter(c)})}
+function copyLink(){
+  const t=location.origin+location.pathname+"#"+room;
+  const done=()=>{L.copied=true;render();setTimeout(()=>{L.copied=false;render()},1600)};
+  if(navigator.clipboard)navigator.clipboard.writeText(t).then(done,selectLink);else selectLink();
+}
+function selectLink(){const el=$("#linkText");if(!el)return;const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+function toggleMark(k,i){
+  const d=L.d;const r1=V.round===1;
+  if(d.marks[k]===i){delete d.marks[k];return}
+  if(k!=="cause"&&!(k in d.marks)){
+    const offer=V.my.offer||[];
+    if(r1&&offer.filter(x=>x in d.marks).length>=C.firstPick){L.err=`最多选 ${C.firstPick} 块，先取消一块。`;return}
+    if(!r1)for(const x of offer)delete d.marks[x];
+  }
+  L.err="";d.marks[k]=i;
+}
+const scrollToAcc=()=>setTimeout(()=>$("#accPanel")?.scrollIntoView({block:"start",behavior:"smooth"}),0);
+
+$("#app").addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b||b.disabled||b.id==="roleBtn")return;
+  const ds=b.dataset;const d=L.d;
+  if(ds.st!==undefined){L.strike.has(ds.st)?L.strike.delete(ds.st):L.strike.add(ds.st);saveStrike();return render()}
+  if(ds.cw){d.w=ds.cw;return render()}
+  if(ds.cc){d.c=ds.cc;return render()}
+  if(ds.mk){toggleMark(ds.mk,+ds.mi);return render()}
+  if(ds.rt){d.retire=d.retire===ds.rt?null:ds.rt;return render()}
+  if(ds.tg){if(d.target!==ds.tg){d.target=ds.tg;d.aw=null;d.ac=null;d.sure=false}return render()}
+  if(ds.aw){d.aw=ds.aw;d.sure=false;return render()}
+  if(ds.ac){d.ac=ds.ac;d.sure=false;return render()}
+  if(ds.fx!==undefined)return act(()=>api("settings",{forensic:ds.fx}));
+  const a=ds.a;
+  if(a==="create")createRoom(0);
+  else if(a==="solo")createRoom(C.minPlayers);
+  else if(a==="join")joinRoom();
+  else if(a==="copy")copyLink();
+  else if(a==="leave"){L.confirmLeave=true;render();setTimeout(()=>$("#leaveYes")?.scrollIntoView({block:"center",behavior:"smooth"}),0)}
+  else if(a==="leaveNo"){L.confirmLeave=false;render()}
+  else if(a==="leaveYes"){L.confirmLeave=false;fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"leave",pid,room})}).catch(()=>{});goHome()}
+  else if(a==="back")goHome();
+  else if(a==="truth"){L.truth=!L.truth;render()}
+  else if(a==="start")act(()=>api("start"));
+  else if(a==="crime")act(()=>api("crime",{w:d.w,c:d.c}));
+  else if(a==="hint")act(()=>api("hint",{marks:d.marks,retire:d.retire}));
+  else if(a==="nextAsk"){d.next=true;render()}
+  else if(a==="nextNo"){d.next=false;render()}
+  else if(a==="nextGo")act(()=>api("next",{round:V.round}));
+  else if(a==="accOpen"){d.acc=true;d.passSure=false;render();scrollToAcc()}
+  else if(a==="accClose"){d.acc=false;d.sure=false;render()}
+  else if(a==="accSure"){d.sure=true;render()}
+  else if(a==="accBack"){d.sure=false;render()}
+  else if(a==="accGo")act(()=>api("accuse",{target:d.target,w:d.aw,c:d.ac}));
+  else if(a==="passAsk"){d.passSure=true;render()}
+  else if(a==="passNo"){d.passSure=false;render()}
+  else if(a==="passGo")act(()=>api("pass"));
+  else if(["addBot","botsAct","lobby"].includes(a))act(()=>api(a));
+});
+$("#app").addEventListener("input",e=>{if(e.target.id==="joinCode")e.target.value=e.target.value.toUpperCase()});
+$("#app").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="joinCode")joinRoom()});
+$("#app").addEventListener("change",e=>{
+  const t=e.target;
+  if(t.id==="viewAs"){asId=t.value;V=null;L.d=null;L.hold=false;L.lastScreen="";connect();render()}
+  else if(t.id==="accChk")act(()=>api("settings",{accomplice:t.checked}));
+});
+
+/* ---------- 启动 ---------- */
+(async()=>{
+  render();
+  try{C=await (await fetch("/config")).json()}catch(e){L.err="连不上服务器。";return render()}
+  RO=C.roles;SD=C.sides;for(const t of C.tiles)TILE[t.key]=t;
+  const h=(location.hash||"").slice(1).toUpperCase();
+  if(/^[A-Z0-9]{4}$/.test(h))L.joinCode=h;
+  render();
+  const saved=ls.get("room");const target=L.joinCode||saved;
+  if(target){
+    const r=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"hello",pid,room:target})}).catch(()=>null);
+    if(r&&r.ok){enter(target);return}
+    if(saved===target)ls.set("room",null);
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: wusheng
+    runtime: node
+    plan: free
+    buildCommand: "true"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    numInstances: 1
